@@ -1,0 +1,36 @@
+board:
+  chip: "esp32"
+  serial_port: "/dev/ttyUSB0"
+  baud_rate: 460800
+
+display:
+  driver: "st7789"
+  interface: "spi"
+  width: 240
+  height: 320
+  color_depth: 16
+  rotation: 0
+  invert_colors: false
+  pins:
+    mosi: 23
+    sclk: 18
+    cs: 5
+    dc: 16
+    rst: 17
+    backlight: 4
+
+capture:
+  camera_id: 0
+  crop_region: null
+  settle_time_sec: 2
+
+ollama:
+  host: "http://127.0.0.1:11434"
+  vision_model: "bakllava"
+  coding_model: "deepseek-coder:6.7b"
+
+loop:
+  max_iterations: 10
+  success_threshold: 7
+  build_retry_limit: 3
+  photo_delay_sec: 3

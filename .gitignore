@@ -1,0 +1,13 @@
+  __pycache__/
+  *.pyc
+  capture/photos/
+  logs/
+  esp_project/build/
+  esp_project/sdkconfig
+  esp_project/sdkconfig.old
+  esp_project/managed_components/
+  esp_project/dependencies.lock
+  esp_project/main/idf_component.yml
+  esp_project/_flash_wrapper.sh
+  *.egg-info/
+  .venv/
