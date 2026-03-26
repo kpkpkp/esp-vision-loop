@@ -1,7 +1,16 @@
-"""Build module — wraps idf.py build and manages ESP-IDF component dependencies."""
+"""
+Build module — wraps idf.py build via proot-distro Debian.
 
+On Termux/Android, the Xtensa cross-compiler (glibc) cannot run natively
+under bionic. All builds are dispatched into a proot-distro Debian
+environment where ESP-IDF's ARM64 toolchain works.
+"""
+
+import logging
 import os
 import subprocess
+
+log = logging.getLogger("esp-vision-loop.builder")
 
 # Map display driver names to ESP Component Registry packages
 DRIVER_COMPONENTS = {
@@ -13,16 +22,8 @@ DRIVER_COMPONENTS = {
     "st7735": "espressif/esp_lcd_st7735",
 }
 
-
-def _get_idf_env():
-    """
-    Build an environment dict with ESP-IDF variables.
-    Assumes the user has sourced export.sh or IDF_PATH is set.
-    """
-    env = os.environ.copy()
-    idf_path = env.get("IDF_PATH", os.path.expanduser("~/esp/esp-idf"))
-    env["IDF_PATH"] = idf_path
-    return env
+# The ESP-IDF path inside the proot Debian environment
+PROOT_IDF_PATH = "/root/esp/esp-idf"
 
 
 def _write_component_yml(project_dir, config):
@@ -35,15 +36,13 @@ def _write_component_yml(project_dir, config):
     yml_path = os.path.join(main_dir, "idf_component.yml")
 
     if component:
-        content = (
-            f"dependencies:\n"
-            f"  {component}: \"*\"\n"
-        )
+        content = f"dependencies:\n  {component}: \"*\"\n"
     else:
         content = "dependencies: {}\n"
 
     with open(yml_path, "w") as f:
         f.write(content)
+    log.debug("Wrote idf_component.yml: %s", content.strip())
 
 
 def write_main_c(project_dir, code):
@@ -52,48 +51,90 @@ def write_main_c(project_dir, code):
     os.makedirs(os.path.dirname(main_c_path), exist_ok=True)
     with open(main_c_path, "w") as f:
         f.write(code)
+    log.info("Wrote main.c (%d lines) to %s", len(code.splitlines()), main_c_path)
+
+
+def _run_in_proot(command_str, timeout=600):
+    """
+    Execute a bash command inside proot-distro Debian.
+
+    Args:
+        command_str: Shell command to run inside the proot environment.
+        timeout: Seconds before killing the process.
+
+    Returns:
+        tuple: (returncode: int, stdout: str, stderr: str)
+    """
+    full_cmd = [
+        "proot-distro", "login", "debian", "--",
+        "bash", "-c", command_str,
+    ]
+    log.debug("proot command: %s", command_str[:200])
+
+    try:
+        result = subprocess.run(
+            full_cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        return result.returncode, result.stdout, result.stderr
+    except subprocess.TimeoutExpired as e:
+        log.error("proot command timed out after %ds", timeout)
+        stdout = e.stdout.decode() if e.stdout else ""
+        stderr = e.stderr.decode() if e.stderr else ""
+        return -1, stdout, stderr + f"\n[TIMEOUT after {timeout}s]"
 
 
 def build_project(config, project_dir):
     """
-    Run idf.py set-target and idf.py build.
+    Build the ESP-IDF project inside proot-distro Debian.
+
+    The project directory is accessible inside proot at its full
+    Termux path (/data/data/com.termux/files/home/...).
 
     Args:
         config: Parsed device.yaml dict.
-        project_dir: Path to the ESP-IDF project directory.
+        project_dir: Absolute path to the ESP-IDF project directory.
 
     Returns:
         tuple: (success: bool, output: str)
     """
-    env = _get_idf_env()
     chip = config["board"]["chip"]
 
     # Write component dependencies based on display driver
     _write_component_yml(project_dir, config)
 
-    # Set target (only needed once, but safe to re-run)
-    result = subprocess.run(
-        ["idf.py", "-C", project_dir, "set-target", chip],
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=120,
-    )
-    if result.returncode != 0:
-        output = result.stdout + "\n" + result.stderr
-        # set-target failure is fatal
-        return False, _truncate(output)
+    log.info("Starting build for chip=%s project=%s", chip, project_dir)
 
-    # Build
-    result = subprocess.run(
-        ["idf.py", "-C", project_dir, "build"],
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=600,
+    # Build command that sources ESP-IDF, sets target, and builds
+    # The project path is the same inside proot (Termux home is mounted)
+    build_script = (
+        f"cd {PROOT_IDF_PATH} && . ./export.sh 2>/dev/null && "
+        f"cd {project_dir} && "
+        f"idf.py set-target {chip} 2>&1 && "
+        f"idf.py build 2>&1"
     )
-    output = result.stdout + "\n" + result.stderr
-    return result.returncode == 0, _truncate(output)
+
+    rc, stdout, stderr = _run_in_proot(build_script, timeout=600)
+
+    output = stdout + "\n" + stderr
+    output = _strip_ansi(output)
+    truncated = _truncate(output)
+
+    if rc == 0:
+        log.info("Build succeeded")
+    else:
+        log.warning("Build failed (rc=%d). Last 20 lines:\n%s",
+                     rc, "\n".join(truncated.splitlines()[-20:]))
+
+    return rc == 0, truncated
+
+
+def _strip_ansi(text):
+    """Remove ANSI escape sequences from build output."""
+    import re
+    return re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', text)
 
 
 def _truncate(text, max_lines=150):

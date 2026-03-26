@@ -14,6 +14,7 @@ Usage:
 
 import argparse
 import json
+import logging
 import os
 import sys
 import time
@@ -299,7 +300,25 @@ def main():
         "--skip-build", action="store_true",
         help="Skip ESP-IDF build step (for testing without toolchain)"
     )
+    parser.add_argument(
+        "--log-level", default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging verbosity (default: INFO)"
+    )
     args = parser.parse_args()
+
+    # Set up logging to both console and file
+    os.makedirs("logs", exist_ok=True)
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+        handlers=[
+            logging.StreamHandler(sys.stderr),
+            logging.FileHandler("logs/orchestrator.log", mode="a"),
+        ],
+    )
+    log = logging.getLogger("esp-vision-loop")
+    log.info("Starting ESP Vision Loop — goal: %s", args.goal)
 
     # Change to script directory so relative paths work
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
