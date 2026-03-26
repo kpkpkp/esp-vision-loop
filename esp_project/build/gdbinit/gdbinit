@@ -1,0 +1,2 @@
+source /data/data/com.termux/files/home/esp-vision-loop/esp_project/build/gdbinit/symbols
+source /data/data/com.termux/files/home/esp-vision-loop/esp_project/build/gdbinit/connect

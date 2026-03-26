@@ -1,0 +1,122 @@
+CMake Warning at /root/esp/esp-idf/tools/cmake/git_submodules.cmake:52 (message):
+  Git submodule
+  components/bootloader/subproject/components/micro-ecc/micro-ecc is out of
+  date.  Run the following command to fix: git submodule update --init
+  --recursive
+Call Stack (most recent call first):
+  /root/esp/esp-idf/tools/cmake/build.cmake:109 (git_submodule_check)
+  /root/esp/esp-idf/tools/cmake/build.cmake:272 (__build_get_idf_git_revision)
+  /root/esp/esp-idf/tools/cmake/idf.cmake:55 (__build_init)
+  /root/esp/esp-idf/tools/cmake/project.cmake:29 (include)
+  CMakeLists.txt:2 (include)
+
+
+CMake Warning at /root/esp/esp-idf/tools/cmake/git_submodules.cmake:52 (message):
+  Git submodule components/bt/controller/lib_esp32 is out of date.  Run the
+  following command to fix: git submodule update --init --recursive
+Call Stack (most recent call first):
+  /root/esp/esp-idf/tools/cmake/build.cmake:109 (git_submodule_check)
+  /root/esp/esp-idf/tools/cmake/build.cmake:272 (__build_get_idf_git_revision)
+  /root/esp/esp-idf/tools/cmake/idf.cmake:55 (__build_init)
+  /root/esp/esp-idf/tools/cmake/project.cmake:29 (include)
+  CMakeLists.txt:2 (include)
+
+
+CMake Warning at /root/esp/esp-idf/tools/cmake/git_submodules.cmake:52 (message):
+  Git submodule components/bt/controller/lib_esp32c2/esp32c2-bt-lib is out of
+  date.  Run the following command to fix: git submodule update --init
+  --recursive
+Call Stack (most recent call first):
+  /root/esp/esp-idf/tools/cmake/build.cmake:109 (git_submodule_check)
+  /root/esp/esp-idf/tools/cmake/build.cmake:272 (__build_get_idf_git_revision)
+  /root/esp/esp-idf/tools/cmake/idf.cmake:55 (__build_init)
+  /root/esp/esp-idf/tools/cmake/project.cmake:29 (include)
+  CMakeLists.txt:2 (include)
+
+
+CMake Warning at /root/esp/esp-idf/tools/cmake/git_submodules.cmake:52 (message):
+  Git submodule components/bt/controller/lib_esp32c3_family is out of date.
+  Run the following command to fix: git submodule update --init --recursive
+Call Stack (most recent call first):
+  /root/esp/esp-idf/tools/cmake/build.cmake:109 (git_submodule_check)
+  /root/esp/esp-idf/tools/cmake/build.cmake:272 (__build_get_idf_git_revision)
+  /root/esp/esp-idf/tools/cmake/idf.cmake:55 (__build_init)
+  /root/esp/esp-idf/tools/cmake/project.cmake:29 (include)
+  CMakeLists.txt:2 (include)
+
+
+CMake Warning at /root/esp/esp-idf/tools/cmake/git_submodules.cmake:52 (message):
+  Git submodule components/bt/controller/lib_esp32c5/esp32c5-bt-lib is out of
+  date.  Run the following command to fix: git submodule update --init
+  --recursive
+Call Stack (most recent call first):
+  /root/esp/esp-idf/tools/cmake/build.cmake:109 (git_submodule_check)
+  /root/esp/esp-idf/tools/cmake/build.cmake:272 (__build_get_idf_git_revision)
+  /root/esp/esp-idf/tools/cmake/idf.cmake:55 (__build_init)
+  /root/esp/esp-idf/tools/cmake/project.cmake:29 (include)
+  CMakeLists.txt:2 (include)
+
+
+CMake Warning at /root/esp/esp-idf/tools/cmake/git_submodules.cmake:52 (message):
+  Git submodule components/bt/controller/lib_esp32c6/esp32c6-bt-lib is out of
+  date.  Run the following command to fix: git submodule update --init
+  --recursive
+Call Stack (most recent call first):
+  /root/esp/esp-idf/tools/cmake/build.cmake:109 (git_submodule_check)
+  /root/esp/esp-idf/tools/cmake/build.cmake:272 (__build_get_idf_git_revision)
+  /root/esp/esp-idf/tools/cmake/idf.cmake:55 (__build_init)
+  /root/esp/esp-idf/tools/cmake/project.cmake:29 (include)
+  CMakeLists.txt:2 (include)
+
+
+CMake Warning at /root/esp/esp-idf/tools/cmake/git_submodules.cmake:52 (message):
+  Git submodule components/bt/controller/lib_esp32h2/esp32h2-bt-lib is out of
+  date.  Run the following command to fix: git submodule update --init
+  --recursive
+Call Stack (most recent call first):
+  /root/esp/esp-idf/tools/cmake/build.cmake:109 (git_submodule_check)
+  /root/esp/esp-idf/tools/cmake/build.cmake:272 (__build_get_idf_git_revision)
+  /root/esp/esp-idf/tools/cmake/idf.cmake:55 (__build_init)
+  /root/esp/esp-idf/tools/cmake/project.cmake:29 (include)
+  CMakeLists.txt:2 (include)
+
+
+CMake Warning at /root/esp/esp-idf/tools/cmake/git_submodules.cmake:52 (message):
+  Git submodule components/bt/esp_ble_mesh/lib/lib is out of date.  Run the
+  following command to fix: git submodule update --init --recursive
+Call Stack (most recent call first):
+  /root/esp/esp-idf/tools/cmake/build.cmake:109 (git_submodule_check)
+  /root/esp/esp-idf/tools/cmake/build.cmake:272 (__build_get_idf_git_revision)
+  /root/esp/esp-idf/tools/cmake/idf.cmake:55 (__build_init)
+  /root/esp/esp-idf/tools/cmake/project.cmake:29 (include)
+  CMakeLists.txt:2 (include)
+
+
+Cloning into '/root/esp/esp-idf/components/cmock/CMock'...
+Submodule 'vendor/c_exception' (https://github.com/throwtheswitch/cexception.git) registered for path 'components/cmock/CMock/vendor/c_exception'
+Submodule 'vendor/unity' (https://github.com/throwtheswitch/unity.git) registered for path 'components/cmock/CMock/vendor/unity'
+Cloning into '/root/esp/esp-idf/components/cmock/CMock/vendor/c_exception'...
+Cloning into '/root/esp/esp-idf/components/cmock/CMock/vendor/unity'...
+Cloning into '/root/esp/esp-idf/components/esp_coex/lib'...
+Cloning into '/root/esp/esp-idf/components/esp_phy/lib'...
+Cloning into '/root/esp/esp-idf/components/esp_wifi/lib'...
+Cloning into '/root/esp/esp-idf/components/heap/tlsf'...
+Cloning into '/root/esp/esp-idf/components/json/cJSON'...
+Cloning into '/root/esp/esp-idf/components/lwip/lwip'...
+Cloning into '/root/esp/esp-idf/components/mbedtls/mbedtls'...
+Cloning into '/root/esp/esp-idf/components/mqtt/esp-mqtt'...
+Cloning into '/root/esp/esp-idf/components/openthread/lib'...
+Cloning into '/root/esp/esp-idf/components/openthread/openthread'...
+Cloning into '/root/esp/esp-idf/components/protobuf-c/protobuf-c'...
+Cloning into '/root/esp/esp-idf/components/spiffs/spiffs'...
+Cloning into '/root/esp/esp-idf/components/unity/unity'...
+warning: config BTDM_CTRL_CONTROLLER_DEBUG_MODE_1 (defined at /root/esp/esp-idf/components/bt/controller/esp32/Kconfig.in:537) has a "visible if" option, which is not supported for configs
+CMake Deprecation Warning at /root/esp/esp-idf/components/mbedtls/mbedtls/CMakeLists.txt:21 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
