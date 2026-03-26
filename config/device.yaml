@@ -20,9 +20,11 @@ display:
     backlight: 4
 
 capture:
+  method: "intent"  # intent | termux-api | manual | auto
   camera_id: 0
   crop_region: null
   settle_time_sec: 2
+  intent_timeout_sec: 60
 
 ollama:
   host: "http://127.0.0.1:11434"

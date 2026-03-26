@@ -45,7 +45,7 @@ def print_status(msg):
     print(f"\n{'='*60}\n  {msg}\n{'='*60}")
 
 
-def run_loop(goal, config, prompts, project_dir, dry_run=False):
+def run_loop(goal, config, prompts, project_dir, dry_run=False, skip_build=False):
     """
     Main autonomous loop.
 
@@ -94,39 +94,45 @@ def run_loop(goal, config, prompts, project_dir, dry_run=False):
         print(f"  Generated {len(code.splitlines())} lines of C code.")
 
         # --- STEP 2: BUILD (with sub-retry loop) ---
-        print_status(f"Iteration {iteration}/{max_iter} — Building")
-        build_ok = False
-        for build_attempt in range(1, build_retries + 1):
-            print(f"  Build attempt {build_attempt}/{build_retries}...")
-            try:
-                success, build_output = build_project(config, project_dir)
-            except Exception as e:
-                build_output = str(e)
-                success = False
+        if skip_build:
+            print("  [SKIP BUILD] Skipping build step.")
+            log["build"] = "skipped"
+            build_ok = True
 
-            log[f"build_attempt_{build_attempt}"] = {
-                "success": success,
-                "output_tail": build_output[-500:] if build_output else "",
-            }
+        if not skip_build:
+            print_status(f"Iteration {iteration}/{max_iter} — Building")
+            build_ok = False
+            for build_attempt in range(1, build_retries + 1):
+                print(f"  Build attempt {build_attempt}/{build_retries}...")
+                try:
+                    success, build_output = build_project(config, project_dir)
+                except Exception as e:
+                    build_output = str(e)
+                    success = False
 
-            if success:
-                build_ok = True
-                print("  Build SUCCESS.")
-                break
+                log[f"build_attempt_{build_attempt}"] = {
+                    "success": success,
+                    "output_tail": build_output[-500:] if build_output else "",
+                }
 
-            print(f"  Build FAILED. Asking model to fix errors...")
-            try:
-                code = fix_build_errors(
-                    config=config,
-                    code=code,
-                    errors=build_output,
-                    prompts=prompts,
-                )
-                write_main_c(project_dir, code)
-                log["generated_code"] = code
-            except Exception as e:
-                print(f"  [ERROR] Fix generation failed: {e}")
-                break
+                if success:
+                    build_ok = True
+                    print("  Build SUCCESS.")
+                    break
+
+                print(f"  Build FAILED. Asking model to fix errors...")
+                try:
+                    code = fix_build_errors(
+                        config=config,
+                        code=code,
+                        errors=build_output,
+                        prompts=prompts,
+                    )
+                    write_main_c(project_dir, code)
+                    log["generated_code"] = code
+                except Exception as e:
+                    print(f"  [ERROR] Fix generation failed: {e}")
+                    break
 
         if not build_ok:
             print(f"  Build failed after {build_retries} attempts.")
@@ -289,6 +295,10 @@ def main():
         "--dry-run", action="store_true",
         help="Skip flash and capture; use test photo for vision"
     )
+    parser.add_argument(
+        "--skip-build", action="store_true",
+        help="Skip ESP-IDF build step (for testing without toolchain)"
+    )
     args = parser.parse_args()
 
     # Change to script directory so relative paths work
@@ -308,6 +318,8 @@ def main():
     print(f"  Success threshold: {config['loop']['success_threshold']}/10")
     if args.dry_run:
         print("  MODE: DRY RUN (no flash/capture)")
+    if args.skip_build:
+        print("  MODE: SKIP BUILD (no ESP-IDF compilation)")
 
     success = run_loop(
         goal=args.goal,
@@ -315,6 +327,7 @@ def main():
         prompts=prompts,
         project_dir=os.path.abspath(args.project_dir),
         dry_run=args.dry_run,
+        skip_build=args.skip_build,
     )
 
     sys.exit(0 if success else 1)

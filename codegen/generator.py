@@ -93,7 +93,7 @@ def generate_code(config, goal, previous_code, vision_feedback, prompts):
             "stream": False,
             "options": {"temperature": 0.3, "num_predict": 4096},
         },
-        timeout=600,
+        timeout=1800,
     )
     response.raise_for_status()
     raw = response.json()["message"]["content"]
@@ -132,7 +132,7 @@ def fix_build_errors(config, code, errors, prompts):
             "stream": False,
             "options": {"temperature": 0.2, "num_predict": 4096},
         },
-        timeout=600,
+        timeout=1800,
     )
     response.raise_for_status()
     raw = response.json()["message"]["content"]
