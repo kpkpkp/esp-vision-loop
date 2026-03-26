@@ -109,11 +109,12 @@ def build_project(config, project_dir):
 
     # Build command that sources ESP-IDF, sets target, and builds
     # The project path is the same inside proot (Termux home is mounted)
+    # Limit ninja jobs to 2 to avoid OOM kills on Android
     build_script = (
         f"cd {PROOT_IDF_PATH} && . ./export.sh 2>/dev/null && "
         f"cd {project_dir} && "
         f"idf.py set-target {chip} 2>&1 && "
-        f"idf.py build 2>&1"
+        f"export CMAKE_BUILD_PARALLEL_LEVEL=2 && idf.py build 2>&1"
     )
 
     rc, stdout, stderr = _run_in_proot(build_script, timeout=600)
