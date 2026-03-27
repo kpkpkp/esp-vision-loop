@@ -107,14 +107,27 @@ def build_project(config, project_dir):
 
     log.info("Starting build for chip=%s project=%s", chip, project_dir)
 
-    # Build command that sources ESP-IDF, sets target, and builds
-    # The project path is the same inside proot (Termux home is mounted)
-    # Limit ninja jobs to 2 to avoid OOM kills on Android
+    # Check if build.ninja exists — if not, we need set-target first.
+    # set-target triggers fullclean, so only do it once.
+    build_ninja = os.path.join(project_dir, "build", "build.ninja")
+    if not os.path.exists(build_ninja):
+        log.info("No build.ninja found — running set-target (one-time)")
+        set_target_script = (
+            f"cd {PROOT_IDF_PATH} && . ./export.sh 2>/dev/null && "
+            f"cd {project_dir} && "
+            f"idf.py set-target {chip} 2>&1"
+        )
+        rc, stdout, stderr = _run_in_proot(set_target_script, timeout=300)
+        if rc != 0:
+            output = stdout + "\n" + stderr
+            return False, _truncate(_strip_ansi(output))
+
+    # Run ninja directly with -j1 to avoid OOM on Android.
+    # ninja is incremental — only recompiles changed files (main.c).
     build_script = (
         f"cd {PROOT_IDF_PATH} && . ./export.sh 2>/dev/null && "
-        f"cd {project_dir} && "
-        f"idf.py set-target {chip} 2>&1 && "
-        f"export CMAKE_BUILD_PARALLEL_LEVEL=2 && idf.py build 2>&1"
+        f"cd {project_dir}/build && "
+        f"ninja -j1 2>&1"
     )
 
     rc, stdout, stderr = _run_in_proot(build_script, timeout=600)
