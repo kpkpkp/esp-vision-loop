@@ -16,6 +16,7 @@ import argparse
 import json
 import logging
 import os
+import subprocess
 import sys
 import time
 
@@ -27,6 +28,27 @@ from build.flasher import flash_device
 from capture.camera import capture_photo
 from capture.preprocess import preprocess_photo
 from vision.judge import judge_photo
+
+
+def _ensure_ollama():
+    """Start Ollama if not running."""
+    try:
+        import requests
+        requests.get("http://127.0.0.1:11434/api/tags", timeout=3)
+    except Exception:
+        print("  Starting Ollama...")
+        subprocess.Popen(
+            ["ollama", "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        time.sleep(5)
+
+
+def _stop_ollama():
+    """Stop Ollama to free RAM for builds."""
+    subprocess.run(["pkill", "-f", "ollama"], capture_output=True)
+    time.sleep(2)
 
 
 def load_config(path):
@@ -73,6 +95,7 @@ def run_loop(goal, config, prompts, project_dir, dry_run=False, skip_build=False
         log = {"iteration": iteration, "goal": goal}
 
         # --- STEP 1: CODE GENERATION ---
+        _ensure_ollama()
         print_status(f"Iteration {iteration}/{max_iter} — Generating code")
         try:
             code = generate_code(
@@ -101,6 +124,7 @@ def run_loop(goal, config, prompts, project_dir, dry_run=False, skip_build=False
             build_ok = True
 
         if not skip_build:
+            _stop_ollama()  # Free RAM for build
             print_status(f"Iteration {iteration}/{max_iter} — Building")
             build_ok = False
             for build_attempt in range(1, build_retries + 1):
@@ -122,6 +146,7 @@ def run_loop(goal, config, prompts, project_dir, dry_run=False, skip_build=False
                     break
 
                 print(f"  Build FAILED. Asking model to fix errors...")
+                _ensure_ollama()
                 try:
                     code = fix_build_errors(
                         config=config,
@@ -212,6 +237,7 @@ def run_loop(goal, config, prompts, project_dir, dry_run=False, skip_build=False
         log["photo_path"] = processed_path
 
         # --- STEP 5: VISION JUDGMENT ---
+        _ensure_ollama()
         print_status(f"Iteration {iteration}/{max_iter} — Judging result")
         try:
             score, description, raw_response = judge_photo(

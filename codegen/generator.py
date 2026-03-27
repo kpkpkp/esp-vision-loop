@@ -32,6 +32,7 @@ def _extract_c_code(text):
 def _build_system_prompt(config, prompts):
     """Assemble the system prompt with device config injected."""
     display = config["display"]
+    pins = display["pins"]
     return prompts["codegen"]["system"].format(
         chip=config["board"]["chip"],
         driver=display["driver"],
@@ -41,7 +42,13 @@ def _build_system_prompt(config, prompts):
         color_depth=display["color_depth"],
         rotation=display["rotation"],
         invert_colors=display.get("invert_colors", False),
-        pins=json.dumps(display["pins"]),
+        pins=json.dumps(pins),
+        pin_mosi=pins.get("mosi", -1),
+        pin_sclk=pins.get("sclk", -1),
+        pin_cs=pins.get("cs", -1),
+        pin_dc=pins.get("dc", -1),
+        pin_rst=pins.get("rst", -1),
+        pin_bk=pins.get("backlight", -1),
     )
 
 
@@ -60,14 +67,6 @@ def generate_code(config, goal, previous_code, vision_feedback, prompts):
         str: The generated C source code for main.c.
     """
     system_prompt = _build_system_prompt(config, prompts)
-
-    # Include the template as reference
-    template = _read_template()
-    if template:
-        system_prompt += (
-            "\n\nHere is a reference skeleton showing the expected structure "
-            "and APIs. Follow this pattern:\n```c\n" + template + "\n```"
-        )
 
     # Build user message
     parts = [f"Goal: {goal}"]

@@ -1,45 +1,70 @@
 codegen:
   system: |
-    You are an expert ESP-IDF C programmer. You write complete, compilable
-    ESP-IDF main/main.c files for the following hardware:
+    You are a C programmer writing drawing code for an ESP32 display.
+    The display is already initialized for you. You do NOT need to set up
+    SPI, GPIO, or the panel driver — that is handled by display_init.h.
 
-    - Chip: {chip}
-    - Display driver: {driver}
-    - Interface: {interface}
-    - Resolution: {width}x{height}
-    - Color depth: {color_depth}-bit
-    - Rotation: {rotation} degrees
-    - Invert colors: {invert_colors}
-    - Pin assignments: {pins}
+    Your file will be compiled as ESP-IDF main/main.c. It has access to:
+    - display_init() — call once in app_main to init the display
+    - display_clear(uint16_t color) — fill screen with a color (RGB565)
+    - display_draw(x_start, y_start, x_end, y_end, color_data) — draw a
+      rectangular region of RGB565 pixels
+    - g_panel — the esp_lcd_panel_handle_t (for advanced use)
+    - LCD_H_RES, LCD_V_RES — screen dimensions ({width}x{height})
+    - heap_caps_malloc(size, MALLOC_CAP_DMA) — allocate DMA-capable buffer
+    - free() — free allocated buffers
+    - vTaskDelay(pdMS_TO_TICKS(ms)) — delay
+
+    RGB565 color format: 5 bits red, 6 bits green, 5 bits blue.
+    Common colors: red=0xF800, green=0x07E0, blue=0x001F, white=0xFFFF, black=0x0000
 
     RULES:
-    1. Output ONLY the complete C file inside ```c fences. No explanation.
-    2. Use esp_lcd APIs (esp_lcd_panel_io, esp_lcd_panel_ops) — these are the
-       modern ESP-IDF display APIs available since v4.4.
-    3. Initialize the display fully: GPIO config, SPI/I2C bus, panel IO,
-       panel driver, orientation, color inversion as needed.
-    4. For drawing, compute pixel buffers and use esp_lcd_panel_draw_bitmap().
-    5. Use RGB565 format for color displays, 1-bit for monochrome OLEDs.
-    6. Include app_main() as the entry point.
-    7. After drawing, enter an infinite loop (the display must persist).
-    8. Do NOT use LVGL or any external graphics library — draw primitives
-       directly by computing pixel coordinates.
-    9. Include all necessary #include headers.
-    10. Allocate pixel buffers with heap_caps_malloc(MALLOC_CAP_DMA) for SPI displays.
+    1. Output ONLY the complete main.c inside ```c fences. No explanation.
+    2. Start with the #defines and #include "display_init.h", then app_main().
+    3. Call display_init() first, then display_clear() to set background.
+    4. Allocate a pixel buffer, compute your shape's pixels, then call
+       display_draw() to push them to the screen.
+    5. For large shapes, draw in horizontal strips (e.g. 20 rows at a time)
+       to avoid running out of heap memory.
+    6. After drawing, loop forever with vTaskDelay.
+    7. Do NOT include SPI/GPIO/panel initialization code — display_init.h does that.
+
+    Your main.c must start with exactly:
+    ```c
+    #include <stdlib.h>
+    #include <string.h>
+    #include <math.h>
+
+    #define LCD_H_RES       {width}
+    #define LCD_V_RES       {height}
+    #define LCD_PIN_MOSI    {pin_mosi}
+    #define LCD_PIN_SCLK    {pin_sclk}
+    #define LCD_PIN_CS      {pin_cs}
+    #define LCD_PIN_DC      {pin_dc}
+    #define LCD_PIN_RST     {pin_rst}
+    #define LCD_PIN_BK      {pin_bk}
+    #define LCD_SPI_FREQ_HZ (40 * 1000 * 1000)
+
+    #include "display_init.h"
+    ```
 
   instruction: |
-    Write the complete main.c file. It must compile and run standalone under ESP-IDF v5.2.
-    Output ONLY the code inside ```c fences. No explanations before or after.
+    Write the complete main.c. It must compile under ESP-IDF v5.4.
+    Remember: display init is handled by display_init.h. You only write drawing logic.
+    Output ONLY the code inside ```c fences.
 
   fix_build: |
-    The code failed to compile with ESP-IDF. Here are the build errors:
+    The code failed to compile. Here are the errors:
 
     ```
     {errors}
     ```
 
-    Fix ALL compilation errors and output the corrected complete main.c
-    file inside ```c fences. Do not explain, just output the fixed code.
+    Fix ALL errors. Remember:
+    - Do NOT write SPI/GPIO/panel init code. Use display_init.h functions.
+    - Available functions: display_init(), display_clear(color), display_draw(x0,y0,x1,y1,buf)
+    - Use heap_caps_malloc(size, MALLOC_CAP_DMA) for buffers, not malloc().
+    Output the corrected complete main.c inside ```c fences.
 
 vision:
   judge: |
