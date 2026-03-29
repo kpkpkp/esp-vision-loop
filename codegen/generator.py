@@ -76,7 +76,9 @@ def generate_code(config, goal, previous_code, vision_feedback, prompts):
         )
     if vision_feedback:
         parts.append(f"Feedback from vision analysis of the previous attempt:\n{vision_feedback}")
-    parts.append(prompts["codegen"]["instruction"])
+    parts.append(prompts["codegen"]["instruction"].format(
+        chip=config["board"]["chip"],
+    ))
 
     user_prompt = "\n\n".join(parts)
 

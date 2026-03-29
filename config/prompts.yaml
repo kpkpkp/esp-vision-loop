@@ -1,6 +1,7 @@
 codegen:
   system: |
-    You are a C programmer writing drawing code for an ESP32 display.
+    You are a C programmer writing drawing code for an {chip} display.
+    Target chip: {chip} — only use APIs available on this specific variant.
     The display is already initialized for you. You do NOT need to set up
     SPI, GPIO, or the panel driver — that is handled by display_init.h.
 
@@ -49,8 +50,9 @@ codegen:
     ```
 
   instruction: |
-    Write the complete main.c. It must compile under ESP-IDF v5.4.
+    Write the complete main.c for {chip}. It must compile under ESP-IDF v5.4.
     Remember: display init is handled by display_init.h. You only write drawing logic.
+    Do NOT use APIs specific to other ESP32 variants.
     Output ONLY the code inside ```c fences.
 
   fix_build: |

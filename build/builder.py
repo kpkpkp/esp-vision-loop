@@ -65,8 +65,13 @@ def _run_in_proot(command_str, timeout=600):
     Returns:
         tuple: (returncode: int, stdout: str, stderr: str)
     """
+    # Bind-mount the project's Termux home into proot at /root so that
+    # build.ninja paths (/root/esp-vision-loop/...) resolve correctly.
+    termux_home = os.path.expanduser("~")
     full_cmd = [
-        "proot-distro", "login", "debian", "--",
+        "proot-distro", "login", "debian",
+        "--bind", f"{termux_home}/esp-vision-loop:/root/esp-vision-loop",
+        "--",
         "bash", "-c", command_str,
     ]
     log.debug("proot command: %s", command_str[:200])
@@ -86,12 +91,18 @@ def _run_in_proot(command_str, timeout=600):
         return -1, stdout, stderr + f"\n[TIMEOUT after {timeout}s]"
 
 
+def _proot_path(host_path):
+    """Translate a Termux host path to the corresponding proot path."""
+    termux_home = os.path.expanduser("~")
+    project_root = os.path.join(termux_home, "esp-vision-loop")
+    if host_path.startswith(project_root):
+        return "/root/esp-vision-loop" + host_path[len(project_root):]
+    return host_path
+
+
 def build_project(config, project_dir):
     """
     Build the ESP-IDF project inside proot-distro Debian.
-
-    The project directory is accessible inside proot at its full
-    Termux path (/data/data/com.termux/files/home/...).
 
     Args:
         config: Parsed device.yaml dict.
@@ -105,7 +116,9 @@ def build_project(config, project_dir):
     # Write component dependencies based on display driver
     _write_component_yml(project_dir, config)
 
-    log.info("Starting build for chip=%s project=%s", chip, project_dir)
+    proot_dir = _proot_path(project_dir)
+    log.info("Starting build for chip=%s project=%s (proot: %s)",
+             chip, project_dir, proot_dir)
 
     # Check if build.ninja exists — if not, we need set-target first.
     # set-target triggers fullclean, so only do it once.
@@ -114,7 +127,7 @@ def build_project(config, project_dir):
         log.info("No build.ninja found — running set-target (one-time)")
         set_target_script = (
             f"cd {PROOT_IDF_PATH} && . ./export.sh 2>/dev/null && "
-            f"cd {project_dir} && "
+            f"cd {proot_dir} && "
             f"idf.py set-target {chip} 2>&1"
         )
         rc, stdout, stderr = _run_in_proot(set_target_script, timeout=300)
@@ -126,7 +139,7 @@ def build_project(config, project_dir):
     # ninja is incremental — only recompiles changed files (main.c).
     build_script = (
         f"cd {PROOT_IDF_PATH} && . ./export.sh 2>/dev/null && "
-        f"cd {project_dir}/build && "
+        f"cd {proot_dir}/build && "
         f"ninja -j1 2>&1"
     )
 
