@@ -1,14 +1,46 @@
 # ESP Vision Loop — Flutter Demo Spec
 
+## Target Device
+
+**Pixel 9a (P9a)** — `57271JEBF00480` / WiFi ADB `192.168.86.250:46749`
+
+| Spec | Value |
+|---|---|
+| SoC | Tensor G4 |
+| RAM | 8 GB (3 GB available) |
+| Storage | 96 GB free |
+| USB OTG | CH343 serial (VID=0x1a86 PID=0x55d3) — "USB Single Serial" S/N 5ABA006661 |
+| Charging | Wireless (Qi) — USB-C free for OTG |
+| Android | 15 |
+| Termux | 0.118.3 (Play Store build, installed via ADB) |
+| Ollama | 0.18.3 native, deepseek-coder:6.7b + bakllava pulled |
+| F-Droid | Installed |
+
+**Why P9a not P10:** P10 proved the concept but ran into Play Store Termux sandbox walls. P9a is fresh, has the ESP32 connected, is on wireless charging, and is available for overnight runs. 8GB RAM is tight but sufficient with INT4 models loaded one-at-a-time.
+
+**RAM budget (8 GB):**
+| Component | RAM | Notes |
+|---|---|---|
+| Android OS | ~2.5 GB | Reduced after disabling AICore/Gemini |
+| Flutter app | ~200 MB | UI + services |
+| Codegen model (INT4) | ~1.5 GB | Gemma 2B or DeepSeek Coder 1.3B |
+| Vision model (INT4) | ~1.0 GB | moondream or custom classifier |
+| proot build (ninja -j1) | ~500 MB | Only during build phase |
+| **Headroom** | **~2.3 GB** | Models loaded one-at-a-time, not concurrent |
+
+**Critical constraint:** Never load codegen + vision + build simultaneously. The orchestrator must sequence: codegen → unload → build → unload → flash → capture → load vision → judge → unload.
+
 ## Overview
 
-A Flutter app that runs on Pixel 10 Pro and autonomously:
+A Flutter app that runs on Pixel 9a and autonomously:
 1. Generates ESP-IDF C code via on-device LLM
 2. Builds it via embedded proot-distro
-3. Flashes it to an attached ESP32 via USB OTG
+3. Flashes it to an attached ESP32 "mystery device" via USB OTG
 4. Photographs the ESP32's display via the phone's camera
 5. Judges the result via on-device vision model
 6. Iterates until success
+
+The attached ESP32 is a **mystery device** — the app must spelunk (identify chip, display, pins) before it can generate appropriate firmware. Spelunking borrows patterns from the existing beacon_app's BLE device discovery.
 
 A remote **tutor** (Claude Code on PC) monitors via WiFi ADB, can revise and redeploy the APK, and nudge the student — but CANNOT pass compiled firmware. The student must build on-device.
 
@@ -41,8 +73,13 @@ A remote **tutor** (Claude Code on PC) monitors via WiFi ADB, can revise and red
          ↕ WiFi ADB                    ↕ USB OTG
     ┌─────────┐                  ┌──────────┐
     │ Tutor   │                  │  ESP32   │
-    │ (PC)    │                  │ Display  │
-    └─────────┘                  └──────────┘
+    │ (PC)    │                  │ Mystery  │
+    └─────────┘                  │ Device   │
+                                 └──────────┘
+    Target: Pixel 9a (P9a)
+    SoC: Tensor G4, 8GB RAM
+    WiFi: 192.168.86.250:46749
+    USB: CH343 → ESP32 (spelunk to identify)
 ```
 
 ## Components
@@ -51,13 +88,14 @@ A remote **tutor** (Claude Code on PC) monitors via WiFi ADB, can revise and red
 
 **Package:** MediaPipe LLM Inference API via Kotlin MethodChannel
 
-**Model options (ranked by feasibility on 16GB device):**
-| Model | Size (INT4) | Quality | Speed (est.) |
-|---|---|---|---|
-| Gemma 2B IT | ~1.5GB | Good for structured code | ~30 tok/s |
-| DeepSeek Coder 1.3B | ~0.8GB | Purpose-built for code | ~50 tok/s |
-| Phi-3 Mini 3.8B | ~2.2GB | Strong reasoning | ~20 tok/s |
-| CodeGemma 2B | ~1.5GB | Code-specific Gemma | ~30 tok/s |
+**Model options (ranked by feasibility on 8GB P9a — must fit in ~1.5GB):**
+| Model | Size (INT4) | Quality | Speed (est.) | Fits P9a? |
+|---|---|---|---|---|
+| DeepSeek Coder 1.3B | ~0.8GB | Purpose-built for code | ~50 tok/s | **YES — primary choice** |
+| Gemma 2B IT | ~1.5GB | Good for structured code | ~30 tok/s | YES (tight) |
+| CodeGemma 2B | ~1.5GB | Code-specific Gemma | ~30 tok/s | YES (tight) |
+| Phi-3 Mini 3.8B | ~2.2GB | Strong reasoning | ~20 tok/s | NO — too large |
+| DeepSeek Coder 6.7B | ~3.8GB | Best quality | ~10 tok/s | NO — too large |
 
 **Implementation:**
 ```kotlin
@@ -287,26 +325,36 @@ class DeviceSpelunker {
 }
 ```
 
-## P10 Resource Reclamation
+## P9a Resource Reclamation
 
-Before running on-device AI, free resources:
+Before running on-device AI, free resources. Critical on 8GB device.
 
 ```bash
+P9A="192.168.86.250:46749"
+
 # Disable AICore (frees 5GB+ storage + background RAM)
-adb shell pm disable-user com.google.android.aicore
-adb shell pm clear com.google.android.aicore
+adb -s $P9A shell pm disable-user com.google.android.aicore
+adb -s $P9A shell pm clear com.google.android.aicore
 
 # Disable Gemini
-adb shell pm disable-user com.google.android.apps.bard
+adb -s $P9A shell pm disable-user com.google.android.apps.bard
 
 # Disable Circle to Search
-adb shell settings put secure assist_gesture_enabled 0
+adb -s $P9A shell settings put secure assist_gesture_enabled 0
 
-# Disable Camera AI features
-# (Must be done in Camera app settings manually)
+# Disable Google Assistant background
+adb -s $P9A shell pm disable-user com.google.android.googlequicksearchbox
+
+# Keep screen on (prevents BLE/scan throttling, learned from Pixel 2 overnight tests)
+adb -s $P9A shell settings put system screen_off_timeout 2147483647
+
+# Set brightness low to save battery on wireless charging
+adb -s $P9A shell settings put system screen_brightness_mode 0
+adb -s $P9A shell settings put system screen_brightness 15
 
 # Verify
-adb shell pm list packages -d | grep -i "ai\|gemini\|bard"
+adb -s $P9A shell pm list packages -d | grep -i "ai\|gemini\|bard"
+adb -s $P9A shell dumpsys battery | grep -E "level|status"
 ```
 
 ## App Structure
