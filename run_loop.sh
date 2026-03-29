@@ -31,6 +31,21 @@ fi
 
 echo ""
 
+# --- Pre-flight: USB permission grant ---
+# Request USB permission now so it doesn't timeout mid-iteration.
+# termux-usb -r prompts once, then caches the grant until USB replug.
+USB_DEV=$(termux-usb -l 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0] if d else '')" 2>/dev/null || true)
+if [ -n "$USB_DEV" ]; then
+    echo "USB device found: $USB_DEV"
+    echo "Requesting USB permission (tap OK on the dialog)..."
+    termux-usb -r "$USB_DEV" -e /bin/true 2>/dev/null || true
+    echo "USB permission granted."
+else
+    echo "No USB device detected — flash steps will be skipped."
+fi
+
+echo ""
+
 # --- Run the loop (Ollama active, Claude Code off) ---
 python3 orchestrator.py --goal "$GOAL" "$@"
 EXIT_CODE=$?

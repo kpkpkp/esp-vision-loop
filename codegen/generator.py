@@ -16,17 +16,38 @@ def _read_template():
     return ""
 
 
+def _sanitize_c_code(code):
+    """Fix common LLM output issues that break compilation."""
+    # Replace full-width Unicode parentheses/brackets with ASCII equivalents.
+    # deepseek-coder drifts to CJK characters across iterations.
+    replacements = {
+        '\uff08': '(',  # （ -> (
+        '\uff09': ')',  # ） -> )
+        '\uff5b': '{',  # ｛ -> {
+        '\uff5d': '}',  # ｝ -> }
+        '\uff3b': '[',  # ［ -> [
+        '\uff3d': ']',  # ］ -> ]
+        '\uff1b': ';',  # ； -> ;
+        '\uff0c': ',',  # ， -> ,
+        '\u3000': ' ',  # ideographic space
+        '\uff1a': ':',  # ： -> :
+    }
+    for uni, ascii_char in replacements.items():
+        code = code.replace(uni, ascii_char)
+    return code
+
+
 def _extract_c_code(text):
     """Extract C code block from LLM response (markdown fences)."""
     match = re.search(r"```c\s*\n(.*?)```", text, re.DOTALL)
     if match:
-        return match.group(1).strip()
+        return _sanitize_c_code(match.group(1).strip())
     # Fallback: try generic code fences
     match = re.search(r"```\s*\n(.*?)```", text, re.DOTALL)
     if match:
-        return match.group(1).strip()
+        return _sanitize_c_code(match.group(1).strip())
     # Last resort: return full text (may contain preamble — caller beware)
-    return text.strip()
+    return _sanitize_c_code(text.strip())
 
 
 def _build_system_prompt(config, prompts):
@@ -92,7 +113,7 @@ def generate_code(config, goal, previous_code, vision_feedback, prompts):
                 {"role": "user", "content": user_prompt},
             ],
             "stream": False,
-            "options": {"temperature": 0.3, "num_predict": 4096},
+            "options": {"temperature": 0.1, "num_predict": 2048},
         },
         timeout=1800,
     )
@@ -131,7 +152,7 @@ def fix_build_errors(config, code, errors, prompts):
                 {"role": "user", "content": user_prompt},
             ],
             "stream": False,
-            "options": {"temperature": 0.2, "num_predict": 4096},
+            "options": {"temperature": 0.1, "num_predict": 2048},
         },
         timeout=1800,
     )

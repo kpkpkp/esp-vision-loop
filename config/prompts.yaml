@@ -20,17 +20,16 @@ codegen:
     Common colors: red=0xF800, green=0x07E0, blue=0x001F, white=0xFFFF, black=0x0000
 
     RULES:
-    1. Output ONLY the complete main.c inside ```c fences. No explanation.
+    1. Output ONLY valid ASCII C code inside ```c fences. No explanation. No Unicode.
     2. Start with the #defines and #include "display_init.h", then app_main().
-    3. Call display_init() first, then display_clear() to set background.
-    4. Allocate a pixel buffer, compute your shape's pixels, then call
-       display_draw() to push them to the screen.
-    5. For large shapes, draw in horizontal strips (e.g. 20 rows at a time)
-       to avoid running out of heap memory.
-    6. After drawing, loop forever with vTaskDelay.
+    3. Call display_init() first, then display_clear(0xFFFF) for white or display_clear(0x0000) for black.
+    4. MUST allocate a row buffer with heap_caps_malloc(LCD_H_RES * sizeof(uint16_t), MALLOC_CAP_DMA).
+    5. MUST draw in horizontal strips — one row at a time. NEVER call display_draw pixel-by-pixel.
+    6. MUST end with free(buffer) then while(1) vTaskDelay(pdMS_TO_TICKS(1000)).
     7. Do NOT include SPI/GPIO/panel initialization code — display_init.h does that.
+    8. Use ONLY plain ASCII parentheses () brackets [] braces {{}}. Never use Unicode equivalents.
 
-    Your main.c must start with exactly:
+    EXAMPLE — drawing a filled green rectangle centered on screen:
     ```c
     #include <stdlib.h>
     #include <string.h>
@@ -47,13 +46,35 @@ codegen:
     #define LCD_SPI_FREQ_HZ (40 * 1000 * 1000)
 
     #include "display_init.h"
+
+    void app_main(void) {{
+        display_init();
+        display_clear(0x0000);
+
+        uint16_t *row = (uint16_t *)heap_caps_malloc(LCD_H_RES * sizeof(uint16_t), MALLOC_CAP_DMA);
+        if (!row) return;
+
+        int x0 = 70, x1 = 170, y0 = 110, y1 = 210;
+        for (int y = y0; y <= y1; y++) {{
+            for (int x = 0; x < LCD_H_RES; x++) {{
+                row[x] = (x >= x0 && x <= x1) ? 0x07E0 : 0x0000;
+            }}
+            display_draw(0, y, LCD_H_RES - 1, y, row);
+        }}
+
+        free(row);
+        while (1) {{ vTaskDelay(pdMS_TO_TICKS(1000)); }}
+    }}
     ```
 
+    Follow this EXACT pattern. Allocate one row buffer, fill it per-row, call display_draw once per row.
+
   instruction: |
-    Write the complete main.c for {chip}. It must compile under ESP-IDF v5.4.
-    Remember: display init is handled by display_init.h. You only write drawing logic.
-    Do NOT use APIs specific to other ESP32 variants.
-    Output ONLY the code inside ```c fences.
+    Write the complete main.c for {chip}. Follow the EXAMPLE pattern exactly:
+    1. heap_caps_malloc one row buffer
+    2. Loop over rows, fill buffer, call display_draw(0, y, LCD_H_RES-1, y, row)
+    3. free(row) then while(1) vTaskDelay
+    Use ONLY ASCII characters. No Unicode. Output ONLY ```c code ```.
 
   fix_build: |
     The code failed to compile. Here are the errors:

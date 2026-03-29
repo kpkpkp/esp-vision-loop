@@ -54,11 +54,17 @@ def flash_device(config, project_dir):
     baud = config["board"]["baud_rate"]
     env = _get_idf_env()
 
-    # Try direct idf.py flash first
+    # Try direct serial port first
     if os.path.exists(port):
         return _flash_direct(project_dir, port, baud, env)
 
     # Fall back to termux-usb
+    usb_device = _detect_usb_device()
+    if usb_device:
+        return _flash_termux_usb(project_dir, usb_device, baud, env)
+
+    # Last resort: try esptool with termux-usb fd passthrough
+    # (handles the case where pyserial's list_ports fails on Termux)
     usb_device = _detect_usb_device()
     if usb_device:
         return _flash_termux_usb(project_dir, usb_device, baud, env)
@@ -98,18 +104,23 @@ def _flash_termux_usb(project_dir, usb_device, baud, env):
     bootloader_path = os.path.join(build_dir, "bootloader", "bootloader.bin")
     partition_path = os.path.join(build_dir, "partition_table", "partition-table.bin")
 
-    # Create a wrapper script for termux-usb
+    # Create a wrapper script for termux-usb.
+    # Use python3 -m esptool instead of esptool.py to control imports.
+    # The FD from termux-usb maps to /proc/self/fd/$1.
     wrapper_path = os.path.join(project_dir, "_flash_wrapper.sh")
+    chip = env.get('IDF_TARGET', 'esp32')
     wrapper_content = f"""#!/data/data/com.termux/files/usr/bin/bash
 # termux-usb passes the USB file descriptor as $1
 FD=$1
-esptool.py --chip {env.get('IDF_TARGET', 'esp32')} \\
-    --port /proc/self/fd/$FD \\
-    --baud {baud} \\
-    write_flash \\
-    0x0 "{bootloader_path}" \\
-    0x8000 "{partition_path}" \\
-    0x10000 "{bin_path}"
+python3 -c "
+import sys
+sys.argv = ['esptool', '--chip', '{chip}', '--port', '/proc/self/fd/$FD',
+            '--baud', '{baud}', '--before', 'default_reset', '--after', 'hard_reset',
+            'write_flash', '0x0', '{bootloader_path}',
+            '0x8000', '{partition_path}', '0x10000', '{bin_path}']
+from esptool.__init__ import main
+main()
+"
 """
     with open(wrapper_path, "w") as f:
         f.write(wrapper_content)
