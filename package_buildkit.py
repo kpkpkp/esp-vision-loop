@@ -202,8 +202,10 @@ def create_link_response_file():
     libs_dir = os.path.join(KIT_DIR, "libs")
     lib_names = sorted(set(f for f in os.listdir(libs_dir) if f.endswith(".a")))
 
-    # Add each library
+    # Add each library (skip xt_hal — its symbols are already in freertos)
     for lib in lib_names:
+        if lib == "libxt_hal.a":
+            continue
         name = lib[3:-2] if lib.startswith("lib") else lib[:-2]  # strip lib prefix and .a
         lines.append(f"-l{name}")
 

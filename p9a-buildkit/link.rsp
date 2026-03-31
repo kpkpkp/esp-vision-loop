@@ -121,7 +121,6 @@
 -lwear_levelling
 -lwifi_provisioning
 -lwpa_supplicant
--lxt_hal
 -lxtensa
 -u esp_app_desc
 -u esp_efuse_startup_include_func

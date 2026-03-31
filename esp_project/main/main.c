@@ -232,11 +232,13 @@ static void draw_string(uint16_t *row_buf, int x, int ry, const char *str, int y
 /* draw_frame() is defined in draw_frame.c — the only file recompiled on-device */
 extern void draw_frame(void);
 
-/* ── UART brightness listener task ────────────────────────── */
-/* Runs in background, scans UART0 for brightness magic: 0xC0 0x5D 0x42 <percent>
- * This works regardless of what draw_frame() does (SDL loop or one-shot). */
+/* ── UART command task (brightness + SDL scene) ───────────── */
+/* Scans UART0 for:
+ *   0xC0 0x5D 0x42 <percent>           → brightness
+ *   0xC0 0x5D 0x4C <len_lo> <len_hi> <data...> → SDL scene
+ * Writes SDL scenes to ble_scene_buf so draw_frame() can render them. */
 #include "driver/uart.h"
-static void uart_brightness_task(void *arg) {
+static void uart_cmd_task(void *arg) {
     uart_config_t cfg = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
@@ -245,25 +247,74 @@ static void uart_brightness_task(void *arg) {
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
     };
     uart_param_config(UART_NUM_0, &cfg);
-    uart_driver_install(UART_NUM_0, 256, 0, 0, NULL, 0);
+    uart_driver_install(UART_NUM_0, BLE_SCENE_BUF_SIZE * 2, 0, 0, NULL, 0);
 
-    uint8_t buf[64];
-    int state = 0;  // 0=wait 0xC0, 1=wait 0x5D, 2=wait cmd, 3=wait brightness byte
+    uint8_t buf[128];
+    // States: 0=wait 0xC0, 1=wait 0x5D, 2=wait cmd byte
+    //   brightness: 3=wait percent
+    //   SDL scene: 10=wait len_lo, 11=wait len_hi, 12=reading scene data
+    int state = 0;
+    int scene_len = 0, scene_off = 0;
+    uint8_t scene_buf[BLE_SCENE_BUF_SIZE];
+
     while (1) {
-        int len = uart_read_bytes(UART_NUM_0, buf, sizeof(buf), 100 / portTICK_PERIOD_MS);
+        int len = uart_read_bytes(UART_NUM_0, buf, sizeof(buf), 50 / portTICK_PERIOD_MS);
         for (int i = 0; i < len; i++) {
             switch (state) {
             case 0: if (buf[i] == 0xC0) state = 1; break;
             case 1: state = (buf[i] == 0x5D) ? 2 : (buf[i] == 0xC0 ? 1 : 0); break;
             case 2:
-                if (buf[i] == 0x42) state = 3;       // brightness command
-                else state = (buf[i] == 0xC0) ? 1 : 0;  // not for us
+                if (buf[i] == 0x42) state = 3;        // brightness
+                else if (buf[i] == 0x4C) state = 10;  // SDL scene
+                else state = (buf[i] == 0xC0) ? 1 : 0;
                 break;
-            case 3: {
+            case 3: {  // brightness percent
                 int pct = buf[i] > 100 ? 100 : buf[i];
                 display_set_brightness(pct);
                 ESP_LOGI(MAIN_TAG, "UART brightness: %d%%", pct);
                 state = 0;
+                break;
+            }
+            case 10:  // SDL len low byte
+                scene_buf[0] = buf[i];
+                state = 11;
+                break;
+            case 11: {  // SDL len high byte
+                scene_len = scene_buf[0] | (buf[i] << 8);
+                if (scene_len > 0 && scene_len <= BLE_SCENE_BUF_SIZE) {
+                    scene_off = 0;
+                    // Consume remaining bytes in this buffer
+                    int avail = len - (i + 1);
+                    int take = avail < scene_len ? avail : scene_len;
+                    if (take > 0) {
+                        memcpy(scene_buf, &buf[i + 1], take);
+                        scene_off = take;
+                        i += take;
+                    }
+                    if (scene_off >= scene_len) {
+                        // Complete — copy to shared buffer
+                        memcpy((void *)ble_scene_buf, scene_buf, scene_len);
+                        ble_scene_len = scene_len;
+                        ble_scene_ready = 1;
+                        ESP_LOGI(MAIN_TAG, "UART SDL scene: %d bytes", scene_len);
+                        state = 0;
+                    } else {
+                        state = 12;  // need more data
+                    }
+                } else {
+                    state = 0;
+                }
+                break;
+            }
+            case 12: {  // reading scene data
+                scene_buf[scene_off++] = buf[i];
+                if (scene_off >= scene_len) {
+                    memcpy((void *)ble_scene_buf, scene_buf, scene_len);
+                    ble_scene_len = scene_len;
+                    ble_scene_ready = 1;
+                    ESP_LOGI(MAIN_TAG, "UART SDL scene: %d bytes", scene_len);
+                    state = 0;
+                }
                 break;
             }
             }
@@ -276,8 +327,8 @@ void app_main(void) {
     backlight_init();
     ble_init();
 
-    // Start UART brightness listener in background (4KB stack is plenty)
-    xTaskCreate(uart_brightness_task, "uart_brt", 4096, NULL, 5, NULL);
+    // Start UART command listener (brightness + SDL scene) in background
+    xTaskCreate(uart_cmd_task, "uart_cmd", 8192, NULL, 5, NULL);
 
     draw_frame();
 
