@@ -26,8 +26,8 @@ volatile int ble_scene_len = 0;
 volatile int ble_scene_ready = 0;
 
 /* ── Backlight PWM via LEDC ───────────────────────────────── */
-/* Waveshare ESP32-S3-LCD-1.28: backlight on GPIO2 */
-#define BL_GPIO     2
+/* Waveshare ESP32-S3-LCD-1.28: backlight on GPIO40 (matches display_init.h LCD_PIN_BK) */
+#define BL_GPIO     40
 #define BL_CHANNEL  LEDC_CHANNEL_0
 #define BL_TIMER    LEDC_TIMER_0
 
@@ -268,10 +268,20 @@ static void uart_cmd_task(void *arg) {
                 else if (buf[i] == 0x4C) state = 10;  // SDL scene
                 else state = (buf[i] == 0xC0) ? 1 : 0;
                 break;
-            case 3: {  // brightness percent
-                int pct = buf[i] > 100 ? 100 : buf[i];
-                display_set_brightness(pct);
-                ESP_LOGI(MAIN_TAG, "UART brightness: %d%%", pct);
+            case 3: {  // brightness percent — save, wait for checksum
+                scene_buf[0] = buf[i];  // reuse scene_buf[0] to hold percent
+                state = 4;
+                break;
+            }
+            case 4: {  // brightness checksum: must be (percent ^ 0xA5)
+                uint8_t pct = scene_buf[0];
+                uint8_t expected = pct ^ 0xA5;
+                if (buf[i] == expected && pct <= 100) {
+                    display_set_brightness(pct);
+                    ESP_LOGI(MAIN_TAG, "UART brightness: %d%%", pct);
+                } else {
+                    ESP_LOGW(MAIN_TAG, "UART brightness checksum FAIL: pct=%d got=0x%02x want=0x%02x", pct, buf[i], expected);
+                }
                 state = 0;
                 break;
             }
@@ -327,8 +337,9 @@ void app_main(void) {
     backlight_init();
     ble_init();
 
-    // Start UART command listener (brightness + SDL scene) in background
-    xTaskCreate(uart_cmd_task, "uart_cmd", 8192, NULL, 5, NULL);
+    // UART command task DISABLED — USB serial noise triggers false scene/brightness
+    // commands causing display blink. Use BLE for brightness and scene control.
+    // xTaskCreate(uart_cmd_task, "uart_cmd", 8192, NULL, 5, NULL);
 
     draw_frame();
 
