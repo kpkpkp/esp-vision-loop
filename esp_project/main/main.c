@@ -334,12 +334,8 @@ static void uart_cmd_task(void *arg) {
 
 void app_main(void) {
     display_init();
-    backlight_init();
-    ble_init();
-
-    // UART command task DISABLED — USB serial noise triggers false scene/brightness
-    // commands causing display blink. Use BLE for brightness and scene control.
-    // xTaskCreate(uart_cmd_task, "uart_cmd", 8192, NULL, 5, NULL);
+    // backlight_init();  // DISABLED — testing if LEDC on GPIO40 causes blink
+    // ble_init();        // DISABLED — testing if NimBLE causes blink
 
     draw_frame();
 
