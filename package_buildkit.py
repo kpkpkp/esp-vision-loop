@@ -95,8 +95,9 @@ def collect_libs():
         shutil.copy2(lib_path, libs_dir)
         count += 1
 
-    # WiFi/BT/PHY binary blobs from ESP-IDF
-    for pattern in ["esp_wifi/lib/esp32s3/*.a", "esp_phy/lib/esp32s3/*.a"]:
+    # WiFi/BT/PHY/Coex binary blobs from ESP-IDF
+    for pattern in ["esp_wifi/lib/esp32s3/*.a", "esp_phy/lib/esp32s3/*.a",
+                     "esp_coex/lib/esp32s3/*.a", "bt/controller/lib_esp32c3_family/esp32s3/*.a"]:
         for lib_path in glob.glob(os.path.join(IDF_PATH, "components", pattern)):
             shutil.copy2(lib_path, libs_dir)
             count += 1
@@ -179,7 +180,6 @@ def create_link_response_file():
         "-fno-rtti -fno-lto",
         "-Wl,--gc-sections",
         "-Wl,--warn-common",
-        "-Wl,--allow-multiple-definition",
         # Linker scripts
         f"-T {R}/ld/esp32s3.peripherals.ld",
         f"-T {R}/ld/esp32s3.rom.ld",
@@ -193,61 +193,39 @@ def create_link_response_file():
         f"-T {R}/ld/sections.ld",
         # Object files
         f"{R}/obj/project_elf_src_esp32s3.c.obj",
-        # Library search path + start group for circular deps
+        # Library search path
         f"-L{R}/libs",
-        "-Wl,--start-group",
     ]
 
-    # Collect all library names from libs/
-    libs_dir = os.path.join(KIT_DIR, "libs")
-    lib_names = sorted(set(f for f in os.listdir(libs_dir) if f.endswith(".a")))
+    # Extract exact link order from build.ninja (ESP-IDF's multi-pass resolution)
+    import re
+    ninja_path = os.path.join(BUILD_DIR, "build.ninja")
+    with open(ninja_path) as f:
+        ninja_text = f.read()
+    m = re.search(r'LINK_LIBRARIES = (.+)', ninja_text)
+    if not m:
+        raise RuntimeError("Could not find LINK_LIBRARIES in build.ninja")
 
-    # Add each library (skip xt_hal — its symbols are already in freertos)
-    for lib in lib_names:
-        if lib == "libxt_hal.a":
+    for token in m.group(1).split():
+        token = token.strip()
+        if not token:
             continue
-        name = lib[3:-2] if lib.startswith("lib") else lib[:-2]  # strip lib prefix and .a
-        lines.append(f"-l{name}")
+        if token.startswith('-'):
+            # Flags: -u, -Wl, -l, etc. — pass through
+            lines.append(token)
+        elif token.endswith('.a'):
+            # Library path — convert to -l with our libs dir
+            name = os.path.basename(token)
+            if name.startswith('lib') and name.endswith('.a'):
+                lines.append(f"-l{name[3:-2]}")
+            else:
+                lines.append(f"{R}/libs/{name}")
+        else:
+            lines.append(token)
 
-    # Critical undefined symbols that must be pulled in
-    lines.extend([
-        "-u esp_app_desc",
-        "-u esp_efuse_startup_include_func",
-        "-u ld_include_highint_hdl",
-        "-u start_app",
-        "-u start_app_other_cores",
-        "-u __ubsan_include",
-        "-u esp_system_include_startup_funcs",
-        "-Wl,--wrap=longjmp",
-        "-u __assert_func",
-        "-Wl,--undefined=FreeRTOS_openocd_params",
-        "-u app_main",
-        "-lc -lm",
-        "-u newlib_include_heap_impl",
-        "-u newlib_include_syscalls_impl",
-        "-u newlib_include_assert_impl",
-        "-u newlib_include_init_funcs",
-        "-u pthread_include_pthread_impl",
-        "-u pthread_include_pthread_cond_var_impl",
-        "-u pthread_include_pthread_local_storage_impl",
-        "-u pthread_include_pthread_rwlock_impl",
-        "-u pthread_include_pthread_semaphore_impl",
-        "-u esp_timer_init_include_func",
-        "-u uart_vfs_include_dev_init",
-        "-u usb_serial_jtag_vfs_include_dev_init",
-        "-u usb_serial_jtag_connection_monitor_include",
-        "-u include_esp_phy_override",
-        "-u esp_vfs_include_console_register",
-        "-u vfs_include_syscalls_impl",
-        "-u __cxa_guard_dummy",
-        "-u __cxx_init_dummy",
-        "-u __cxx_fatal_exception",
-        "-u esp_system_include_coredump_init",
-        "-u nvs_sec_provider_include_impl",
-        "-lstdc++",
-        "-lgcc",
-        "-Wl,--end-group",
-    ])
+    # Ensure gcc/stdc++ at end
+    if "-lgcc" not in lines:
+        lines.append("-lgcc")
 
     rsp_path = os.path.join(KIT_DIR, "link.rsp")
     with open(rsp_path, "w") as f:
