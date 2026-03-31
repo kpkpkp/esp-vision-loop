@@ -98,7 +98,7 @@ static void display_init(void)
 /**
  * Fill the entire screen with a single color (RGB565, byte-swapped for GC9A01).
  */
-static void display_clear(uint16_t color)
+void display_clear(uint16_t color)
 {
     /* Byte-swap: ESP32-S3 is little-endian, GC9A01 SPI expects big-endian RGB565 */
     uint16_t swapped = __builtin_bswap16(color);
@@ -124,8 +124,8 @@ static void display_clear(uint16_t color)
  * Draw a rectangular block of pixels. color_data is RGB565 (byte-swapped),
  * row-major, size = (x_end - x_start) * (y_end - y_start) pixels.
  */
-static void display_draw(int x_start, int y_start, int x_end, int y_end,
-                         const uint16_t *color_data)
+void display_draw(int x_start, int y_start, int x_end, int y_end,
+                  const uint16_t *color_data)
 {
     esp_lcd_panel_draw_bitmap(g_panel, x_start, y_start, x_end, y_end, color_data);
 }

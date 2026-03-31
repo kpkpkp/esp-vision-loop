@@ -1,0 +1,161 @@
+-mlongcalls
+-fno-builtin-memcpy -fno-builtin-memset -fno-builtin-bzero -fno-builtin-stpcpy -fno-builtin-strncpy
+-Wl,--cref
+-Wl,--defsym=IDF_TARGET_ESP32S3=0
+-Wl,--no-warn-rwx-segments
+-fno-rtti -fno-lto
+-Wl,--gc-sections
+-Wl,--warn-common
+-Wl,--allow-multiple-definition
+-T /data/local/tmp/p9a-kit/p9a-buildkit/ld/esp32s3.peripherals.ld
+-T /data/local/tmp/p9a-kit/p9a-buildkit/ld/esp32s3.rom.ld
+-T /data/local/tmp/p9a-kit/p9a-buildkit/ld/esp32s3.rom.api.ld
+-T /data/local/tmp/p9a-kit/p9a-buildkit/ld/esp32s3.rom.bt_funcs.ld
+-T /data/local/tmp/p9a-kit/p9a-buildkit/ld/esp32s3.rom.libgcc.ld
+-T /data/local/tmp/p9a-kit/p9a-buildkit/ld/esp32s3.rom.wdt.ld
+-T /data/local/tmp/p9a-kit/p9a-buildkit/ld/esp32s3.rom.version.ld
+-T /data/local/tmp/p9a-kit/p9a-buildkit/ld/esp32s3.rom.newlib.ld
+-T /data/local/tmp/p9a-kit/p9a-buildkit/ld/memory.ld
+-T /data/local/tmp/p9a-kit/p9a-buildkit/ld/sections.ld
+/data/local/tmp/p9a-kit/p9a-buildkit/obj/project_elf_src_esp32s3.c.obj
+-L/data/local/tmp/p9a-kit/p9a-buildkit/libs
+-Wl,--start-group
+-lapp_trace
+-lapp_update
+-lbootloader_support
+-lbt
+-lbtbb
+-lbttestmode
+-lcmock
+-lconsole
+-lcore
+-lcxx
+-ldriver
+-lefuse
+-lesp-tls
+-lesp_adc
+-lesp_app_format
+-lesp_bootloader_format
+-lesp_coex
+-lesp_common
+-lesp_driver_cam
+-lesp_driver_gpio
+-lesp_driver_gptimer
+-lesp_driver_i2c
+-lesp_driver_i2s
+-lesp_driver_ledc
+-lesp_driver_mcpwm
+-lesp_driver_pcnt
+-lesp_driver_rmt
+-lesp_driver_sdm
+-lesp_driver_sdmmc
+-lesp_driver_sdspi
+-lesp_driver_spi
+-lesp_driver_tsens
+-lesp_driver_uart
+-lesp_driver_usb_serial_jtag
+-lesp_eth
+-lesp_event
+-lesp_gdbstub
+-lesp_hid
+-lesp_http_client
+-lesp_http_server
+-lesp_https_ota
+-lesp_https_server
+-lesp_hw_support
+-lesp_lcd
+-lesp_local_ctrl
+-lesp_mm
+-lesp_netif
+-lesp_partition
+-lesp_phy
+-lesp_pm
+-lesp_ringbuf
+-lesp_rom
+-lesp_system
+-lesp_timer
+-lesp_vfs_console
+-lesp_wifi
+-lespcoredump
+-lespnow
+-lespressif__esp_lcd_gc9a01
+-leverest
+-lfatfs
+-lfreertos
+-lhal
+-lheap
+-lhttp_parser
+-ljson
+-llog
+-llwip
+-lmain
+-lmbedcrypto
+-lmbedtls
+-lmbedx509
+-lmesh
+-lmqtt
+-lnet80211
+-lnewlib
+-lnvs_flash
+-lnvs_sec_provider
+-lp256m
+-lperfmon
+-lphy
+-lpp
+-lprotobuf-c
+-lprotocomm
+-lpthread
+-lrfate
+-lrftest
+-lsdmmc
+-lsmartconfig
+-lsoc
+-lspi_flash
+-lspiffs
+-ltcp_transport
+-ltouch_element
+-lunity
+-lusb
+-lvfs
+-lwapi
+-lwear_levelling
+-lwifi_provisioning
+-lwpa_supplicant
+-lxt_hal
+-lxtensa
+-u esp_app_desc
+-u esp_efuse_startup_include_func
+-u ld_include_highint_hdl
+-u start_app
+-u start_app_other_cores
+-u __ubsan_include
+-u esp_system_include_startup_funcs
+-Wl,--wrap=longjmp
+-u __assert_func
+-Wl,--undefined=FreeRTOS_openocd_params
+-u app_main
+-lc -lm
+-u newlib_include_heap_impl
+-u newlib_include_syscalls_impl
+-u newlib_include_assert_impl
+-u newlib_include_init_funcs
+-u pthread_include_pthread_impl
+-u pthread_include_pthread_cond_var_impl
+-u pthread_include_pthread_local_storage_impl
+-u pthread_include_pthread_rwlock_impl
+-u pthread_include_pthread_semaphore_impl
+-u esp_timer_init_include_func
+-u uart_vfs_include_dev_init
+-u usb_serial_jtag_vfs_include_dev_init
+-u usb_serial_jtag_connection_monitor_include
+-u include_esp_phy_override
+-u esp_vfs_include_console_register
+-u vfs_include_syscalls_impl
+-u __cxa_guard_dummy
+-u __cxx_init_dummy
+-u __cxx_fatal_exception
+-u esp_system_include_coredump_init
+-u nvs_sec_provider_include_impl
+-lstdc++
+-lgcc
+-Wl,--end-group
