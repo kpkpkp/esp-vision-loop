@@ -334,8 +334,8 @@ static void uart_cmd_task(void *arg) {
 
 void app_main(void) {
     display_init();
-    // backlight_init();  // DISABLED — testing if LEDC on GPIO40 causes blink
-    // ble_init();        // DISABLED — testing if NimBLE causes blink
+    // backlight_init() DISABLED — LEDC PWM on GPIO40 causes blink (SPI/DMA contention)
+    // ble_init() DISABLED — NimBLE radio causes blink (SPI/DMA contention, 11 blinks/3s)
 
     draw_frame();
 
